@@ -1,6 +1,7 @@
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
+from . import db
 from .config import settings
 from .orchestrator import run_pipeline
 
@@ -17,9 +18,14 @@ app.add_middleware(
 ALLOWED_TYPES = {"application/pdf", "image/png", "image/jpeg", "image/webp"}
 
 
+@app.on_event("startup")
+def on_startup():
+    db.init_db()  # no-op if DATABASE_URL isn't set
+
+
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    return {"status": "ok", "database_configured": db.is_configured()}
 
 
 @app.post("/analyze")
@@ -38,8 +44,24 @@ async def analyze(file: UploadFile = File(...)):
         # return a generic error to the client.
         raise HTTPException(500, f"Pipeline error: {e}")
 
+    report_id = db.save_report(result.report, result.trace, result.guardrail_issues)
+
     return {
+        "id": report_id,
         "report": result.report,
         "trace": result.trace,
         "guardrail_issues": result.guardrail_issues,
     }
+
+
+@app.get("/reports")
+def list_reports(limit: int = 50):
+    return {"configured": db.is_configured(), "reports": db.list_reports(limit)}
+
+
+@app.get("/reports/{report_id}")
+def get_report(report_id: int):
+    result = db.get_report(report_id)
+    if result is None:
+        raise HTTPException(404, "Report not found")
+    return result
