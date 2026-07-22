@@ -1,0 +1,19 @@
+# Secrets — never commit real API keys
+.env
+*.env
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+
+# Vector store / generated data
+chroma_db/
+
+# OS/editor cruft
+.DS_Store
+.vscode/
+.idea/

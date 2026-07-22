@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Report Review — Clinical Decision Support</title>
+<style>
+  :root {
+    --ink: #10241f;
+    --paper: #f6f8f7;
+    --line: #d8e2df;
+    --teal: #0f6659;
+    --teal-deep: #0a4a41;
+    --amber: #b5731a;
+    --red: #a3312a;
+    --muted: #5a6d68;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+    line-height: 1.5;
+  }
+  header {
+    border-bottom: 1px solid var(--line);
+    padding: 28px 32px;
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+  }
+  header .mark {
+    width: 10px; height: 10px; border-radius: 2px;
+    background: var(--teal);
+    transform: rotate(45deg);
+  }
+  header h1 { font-size: 1.15rem; margin: 0; font-weight: 600; letter-spacing: 0.01em; }
+  header .sub { color: var(--muted); font-size: 0.85rem; }
+
+  main { max-width: 760px; margin: 0 auto; padding: 40px 24px 80px; }
+
+  .banner {
+    background: #fff8ec;
+    border: 1px solid #eddcb2;
+    color: #6b4a10;
+    padding: 12px 16px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    margin-bottom: 32px;
+  }
+
+  .dropzone {
+    border: 1.5px dashed var(--line);
+    border-radius: 10px;
+    padding: 48px 24px;
+    text-align: center;
+    background: #fff;
+    cursor: pointer;
+    transition: border-color 0.15s ease;
+  }
+  .dropzone:hover, .dropzone.drag { border-color: var(--teal); }
+  .dropzone p { margin: 6px 0; }
+  .dropzone .file-name { color: var(--teal-deep); font-weight: 600; }
+  input[type=file] { display: none; }
+
+  button.primary {
+    margin-top: 20px;
+    width: 100%;
+    background: var(--teal-deep);
+    color: white;
+    border: none;
+    padding: 13px 20px;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button.primary:disabled { background: #a9b8b4; cursor: not-allowed; }
+
+  section.report { margin-top: 40px; display: none; }
+  section.report.show { display: block; }
+
+  .card {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 22px 24px;
+    margin-bottom: 16px;
+  }
+  .card h2 {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    margin: 0 0 12px;
+  }
+  .finding {
+    display: flex;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid #eef2f1;
+  }
+  .finding:last-child { border-bottom: none; }
+  .sev {
+    flex-shrink: 0;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 4px;
+    height: fit-content;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+  }
+  .sev.routine { background: #e6f1ee; color: var(--teal-deep); }
+  .sev.needs_follow_up, .sev\.needs-follow-up { background: #fdf0dd; color: var(--amber); }
+  .sev.urgent { background: #fbe7e5; color: var(--red); }
+
+  .disclaimer {
+    font-size: 0.8rem;
+    color: var(--muted);
+    border-left: 3px solid var(--teal);
+    padding-left: 12px;
+    margin-top: 24px;
+  }
+
+  .trace {
+    font-family: ui-monospace, monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-top: 24px;
+    white-space: pre-wrap;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="mark"></div>
+  <div>
+    <h1>Clinical Report Review</h1>
+    <div class="sub">AI-assisted decision support — for licensed clinician review</div>
+  </div>
+</header>
+
+<main>
+  <div class="banner">
+    This tool produces AI-generated summaries for clinician review only. It does not
+    diagnose conditions or prescribe treatment. Always verify against the source
+    document and clinical judgment.
+  </div>
+
+  <div class="dropzone" id="dropzone">
+    <p><strong>Drop a report here</strong>, or click to choose a file</p>
+    <p style="color: var(--muted); font-size: 0.85rem;">PDF, PNG, JPG — up to 15MB</p>
+    <p class="file-name" id="fileName"></p>
+    <input type="file" id="fileInput" accept=".pdf,.png,.jpg,.jpeg,.webp">
+  </div>
+
+  <button class="primary" id="analyzeBtn" disabled>Analyze report</button>
+
+  <section class="report" id="reportSection">
+    <div class="card">
+      <h2>Summary</h2>
+      <p id="summaryText"></p>
+    </div>
+
+    <div class="card">
+      <h2>Abnormal findings</h2>
+      <div id="findingsList"></div>
+    </div>
+
+    <div class="card">
+      <h2>Differential considerations</h2>
+      <ul id="differentialList"></ul>
+    </div>
+
+    <div class="card">
+      <h2>Suggested next steps</h2>
+      <ul id="nextStepsList"></ul>
+    </div>
+
+    <p class="disclaimer" id="disclaimerText"></p>
+    <div class="trace" id="traceText"></div>
+  </section>
+</main>
+
+<script>
+  const API_BASE = "http://localhost:8000"; // point this at your deployed backend
+
+  const dropzone = document.getElementById("dropzone");
+  const fileInput = document.getElementById("fileInput");
+  const fileNameEl = document.getElementById("fileName");
+  const analyzeBtn = document.getElementById("analyzeBtn");
+  const reportSection = document.getElementById("reportSection");
+
+  let selectedFile = null;
+
+  dropzone.addEventListener("click", () => fileInput.click());
+  dropzone.addEventListener("dragover", (e) => { e.preventDefault(); dropzone.classList.add("drag"); });
+  dropzone.addEventListener("dragleave", () => dropzone.classList.remove("drag"));
+  dropzone.addEventListener("drop", (e) => {
+    e.preventDefault();
+    dropzone.classList.remove("drag");
+    if (e.dataTransfer.files.length) setFile(e.dataTransfer.files[0]);
+  });
+  fileInput.addEventListener("change", () => {
+    if (fileInput.files.length) setFile(fileInput.files[0]);
+  });
+
+  function setFile(file) {
+    selectedFile = file;
+    fileNameEl.textContent = file.name;
+    analyzeBtn.disabled = false;
+  }
+
+  analyzeBtn.addEventListener("click", async () => {
+    if (!selectedFile) return;
+    analyzeBtn.disabled = true;
+    analyzeBtn.textContent = "Analyzing…";
+
+    const formData = new FormData();
+    formData.append("file", selectedFile);
+
+    try {
+      const res = await fetch(`${API_BASE}/analyze`, { method: "POST", body: formData });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      renderReport(data);
+    } catch (err) {
+      alert("Analysis failed: " + err.message);
+    } finally {
+      analyzeBtn.disabled = false;
+      analyzeBtn.textContent = "Analyze report";
+    }
+  });
+
+  function renderReport(data) {
+    const r = data.report || {};
+
+    document.getElementById("summaryText").textContent = r.summary || "—";
+
+    const findingsList = document.getElementById("findingsList");
+    findingsList.innerHTML = "";
+    (r.abnormal_findings || []).forEach(f => {
+      const div = document.createElement("div");
+      div.className = "finding";
+      const sevClass = (f.severity || "routine").replace(/\s+/g, "_");
+      div.innerHTML = `<span class="sev ${sevClass}">${f.severity || "routine"}</span>
+                        <span><strong>${f.finding || ""}</strong><br>${f.note || ""}</span>`;
+      findingsList.appendChild(div);
+    });
+
+    const diffList = document.getElementById("differentialList");
+    diffList.innerHTML = "";
+    (r.differential_considerations || []).forEach(d => {
+      const li = document.createElement("li");
+      li.textContent = d;
+      diffList.appendChild(li);
+    });
+
+    const stepsList = document.getElementById("nextStepsList");
+    stepsList.innerHTML = "";
+    (r.suggested_next_steps || []).forEach(s => {
+      const li = document.createElement("li");
+      li.textContent = s;
+      stepsList.appendChild(li);
+    });
+
+    document.getElementById("disclaimerText").textContent = r.disclaimer || "";
+    document.getElementById("traceText").textContent = (data.trace || []).join("\n");
+
+    reportSection.classList.add("show");
+    reportSection.scrollIntoView({ behavior: "smooth" });
+  }
+</script>
+
+</body>
+</html>
