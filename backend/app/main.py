@@ -10,7 +10,7 @@ app = FastAPI(title="Medical Report Analysis Agent (Scaffold)")
 # Tighten this for production — restrict to your actual frontend origin.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["https://med-lab-five.vercel.app"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
